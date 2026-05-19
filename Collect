@@ -1,8 +1,9 @@
 --// INTERACTIVEEVENTS AUTO PROMPT FARM
---// FAST + MOBILE + HOLD BYPASS + IGNORE USED
+--// TP 0.5s EACH + SPAM E + CLICK + MOBILE
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
 
 local LP = Players.LocalPlayer
 local Character = LP.Character or LP.CharacterAdded:Wait()
@@ -13,8 +14,16 @@ local TargetFolder = workspace:WaitForChild("InteractiveEvents")
 
 -- SETTINGS
 local Enabled = false
-local Delay = 0.03
-local TPHeight = Vector3.new(0,3,0)
+local StayTime = 0.5
+local TPHeight = Vector3.new(0,2.5,0)
+
+-- IGNORE
+local IgnoreNames = {
+	["HoneyJarMachine"] = true
+}
+
+-- USED
+local UsedPrompts = {}
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -86,13 +95,12 @@ end)
 Main.InputChanged:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.Touch
 	or input.UserInputType == Enum.UserInputType.MouseMovement then
-
 		dragInput = input
 	end
 end)
 
 UIS.InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
+	if dragging and input == dragInput then
 		update(input)
 	end
 end)
@@ -123,22 +131,53 @@ local function getPrompts()
 	for _, obj in ipairs(TargetFolder:GetDescendants()) do
 		if obj:IsA("ProximityPrompt") then
 
-			-- HOLD BYPASS
-			obj.HoldDuration = 0
+			if IgnoreNames[obj.Parent.Name] then
+				continue
+			end
 
-			table.insert(found, obj)
+			if not UsedPrompts[obj] then
+				obj.HoldDuration = 0
+				obj.RequiresLineOfSight = false
+				obj.MaxActivationDistance = 999999
+
+				table.insert(found, obj)
+			end
 		end
 	end
 
 	return found
 end
 
--- USED PROMPTS
-local UsedPrompts = {}
+-- SPAM INTERACT
+local function spamInteract(prompt, duration)
+	local startTime = tick()
+
+	while tick() - startTime < duration do
+
+		-- FIRE PROMPT
+		pcall(function()
+			fireproximityprompt(prompt, 0)
+		end)
+
+		-- PRESS E
+		pcall(function()
+			VIM:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+			VIM:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+		end)
+
+		-- CLICK
+		pcall(function()
+			VIM:SendMouseButtonEvent(0,0,0,true,game,0)
+			VIM:SendMouseButtonEvent(0,0,0,false,game,0)
+		end)
+
+		task.wait(0.05)
+	end
+end
 
 -- MAIN LOOP
 task.spawn(function()
-	while task.wait(Delay) do
+	while task.wait() do
 		if Enabled and HRP then
 
 			local prompts = getPrompts()
@@ -146,42 +185,31 @@ task.spawn(function()
 			for _, prompt in ipairs(prompts) do
 				pcall(function()
 
-					-- IGNORE USED
-					if UsedPrompts[prompt] then
+					if not prompt.Enabled then
 						return
 					end
 
-					if prompt.Enabled and prompt.Parent then
+					local parent = prompt.Parent
+					local pos
 
-						local parent = prompt.Parent
-						local pos
+					if parent:IsA("BasePart") then
+						pos = parent.Position
 
-						if parent:IsA("BasePart") then
-							pos = parent.Position
+					elseif parent:IsA("Attachment")
+					and parent.Parent:IsA("BasePart") then
+						pos = parent.Parent.Position
+					end
 
-						elseif parent:IsA("Attachment")
-						and parent.Parent:IsA("BasePart") then
-							pos = parent.Parent.Position
-						end
+					if pos then
+						-- MARK USED
+						UsedPrompts[prompt] = true
 
-						if pos then
-							-- DISTANCE CHECK
-							if (HRP.Position - pos).Magnitude > 6 then
+						-- TP
+						HRP.AssemblyLinearVelocity = Vector3.zero
+						HRP.CFrame = CFrame.new(pos + TPHeight)
 
-								-- MARK USED
-								UsedPrompts[prompt] = true
-
-								-- FAST TELEPORT
-								HRP.AssemblyLinearVelocity = Vector3.zero
-								HRP.CFrame = CFrame.new(pos + TPHeight)
-
-								task.wait()
-
-								-- FIRE PROMPT
-								prompt.HoldDuration = 0
-								fireproximityprompt(prompt, 0)
-							end
-						end
+						-- STAY + SPAM
+						spamInteract(prompt, StayTime)
 					end
 				end)
 			end
