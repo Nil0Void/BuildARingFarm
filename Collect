@@ -1,0 +1,169 @@
+--// INTERACTIVEEVENTS AUTO PROMPT FARM
+--// ONLY TARGETS workspace.InteractiveEvents
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+
+local LP = Players.LocalPlayer
+local Character = LP.Character or LP.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+-- TARGET FOLDER
+local TargetFolder = workspace:WaitForChild("InteractiveEvents")
+
+-- SETTINGS
+local Enabled = false
+local Delay = 0.15
+local TPHeight = Vector3.new(0,3,0)
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "InteractivePromptFarm"
+ScreenGui.ResetOnSpawn = false
+
+pcall(function()
+	ScreenGui.Parent = game.CoreGui
+end)
+
+if not ScreenGui.Parent then
+	ScreenGui.Parent = LP.PlayerGui
+end
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0,190,0,70)
+Main.Position = UDim2.new(0,20,0.5,-35)
+Main.BackgroundColor3 = Color3.fromRGB(25,25,25)
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,12)
+
+local Toggle = Instance.new("TextButton")
+Toggle.Size = UDim2.new(1,-20,1,-20)
+Toggle.Position = UDim2.new(0,10,0,10)
+Toggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
+Toggle.TextColor3 = Color3.new(1,1,1)
+Toggle.Font = Enum.Font.GothamBold
+Toggle.TextSize = 16
+Toggle.Text = "INTERACTIVE FARM: OFF"
+Toggle.Parent = Main
+
+Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,10)
+
+-- DRAGGING
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+	local delta = input.Position - dragStart
+
+	Main.Position = UDim2.new(
+		startPos.X.Scale,
+		startPos.X.Offset + delta.X,
+		startPos.Y.Scale,
+		startPos.Y.Offset + delta.Y
+	)
+end
+
+Main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		dragging = true
+		dragStart = input.Position
+		startPos = Main.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+Main.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseMovement then
+
+		dragInput = input
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		update(input)
+	end
+end)
+
+-- TOGGLE
+Toggle.MouseButton1Click:Connect(function()
+	Enabled = not Enabled
+
+	if Enabled then
+		Toggle.Text = "INTERACTIVE FARM: ON"
+		Toggle.BackgroundColor3 = Color3.fromRGB(0,170,0)
+	else
+		Toggle.Text = "INTERACTIVE FARM: OFF"
+		Toggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
+	end
+end)
+
+-- CHARACTER UPDATE
+LP.CharacterAdded:Connect(function(char)
+	Character = char
+	HRP = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- GET PROMPTS
+local function getPrompts()
+	local found = {}
+
+	for _, obj in ipairs(TargetFolder:GetDescendants()) do
+		if obj:IsA("ProximityPrompt") then
+
+			-- HOLD BYPASS
+			obj.HoldDuration = 0
+
+			table.insert(found, obj)
+		end
+	end
+
+	return found
+end
+
+-- MAIN LOOP
+task.spawn(function()
+	while task.wait(Delay) do
+		if Enabled and HRP then
+
+			local prompts = getPrompts()
+
+			for _, prompt in ipairs(prompts) do
+				pcall(function()
+
+					if prompt.Enabled and prompt.Parent then
+
+						local parent = prompt.Parent
+						local pos
+
+						if parent:IsA("BasePart") then
+							pos = parent.Position
+
+						elseif parent:IsA("Attachment")
+						and parent.Parent:IsA("BasePart") then
+							pos = parent.Parent.Position
+						end
+
+						if pos then
+							HRP.CFrame = CFrame.new(pos + TPHeight)
+
+							fireproximityprompt(prompt, 0)
+						end
+					end
+				end)
+			end
+		end
+	end
+end)
