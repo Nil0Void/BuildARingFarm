@@ -1,5 +1,5 @@
 --// INTERACTIVEEVENTS AUTO PROMPT FARM
---// ONLY TARGETS workspace.InteractiveEvents
+--// FAST + MOBILE + HOLD BYPASS + IGNORE USED
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -13,7 +13,7 @@ local TargetFolder = workspace:WaitForChild("InteractiveEvents")
 
 -- SETTINGS
 local Enabled = false
-local Delay = 0.15
+local Delay = 0.03
 local TPHeight = Vector3.new(0,3,0)
 
 -- GUI
@@ -133,6 +133,9 @@ local function getPrompts()
 	return found
 end
 
+-- USED PROMPTS
+local UsedPrompts = {}
+
 -- MAIN LOOP
 task.spawn(function()
 	while task.wait(Delay) do
@@ -142,6 +145,11 @@ task.spawn(function()
 
 			for _, prompt in ipairs(prompts) do
 				pcall(function()
+
+					-- IGNORE USED
+					if UsedPrompts[prompt] then
+						return
+					end
 
 					if prompt.Enabled and prompt.Parent then
 
@@ -157,9 +165,22 @@ task.spawn(function()
 						end
 
 						if pos then
-							HRP.CFrame = CFrame.new(pos + TPHeight)
+							-- DISTANCE CHECK
+							if (HRP.Position - pos).Magnitude > 6 then
 
-							fireproximityprompt(prompt, 0)
+								-- MARK USED
+								UsedPrompts[prompt] = true
+
+								-- FAST TELEPORT
+								HRP.AssemblyLinearVelocity = Vector3.zero
+								HRP.CFrame = CFrame.new(pos + TPHeight)
+
+								task.wait()
+
+								-- FIRE PROMPT
+								prompt.HoldDuration = 0
+								fireproximityprompt(prompt, 0)
+							end
 						end
 					end
 				end)
