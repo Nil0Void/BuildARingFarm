@@ -6,14 +6,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 --////////////////////////////////////////////////////
---// GUI
+--// REMOVE OLD GUI
 --////////////////////////////////////////////////////
 
 pcall(function()
-	if game:GetService("CoreGui"):FindFirstChild("PlantRushGUI") then
-		game:GetService("CoreGui"):FindFirstChild("PlantRushGUI"):Destroy()
+	local old = game:GetService("CoreGui"):FindFirstChild("PlantRushGUI")
+	if old then
+		old:Destroy()
 	end
 end)
+
+--////////////////////////////////////////////////////
+--// GUI
+--////////////////////////////////////////////////////
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PlantRushGUI"
@@ -151,7 +156,7 @@ task.spawn(function()
 end)
 
 --////////////////////////////////////////////////////
---// ULTRA FAST BUY SHOP ITEM TOGGLES
+--// ULTRA FAST BUY SHOP ITEMS
 --////////////////////////////////////////////////////
 
 local BuyStates = {
@@ -204,7 +209,7 @@ CreateToggle("Auto Buy Eggs", function(state)
 end)
 
 task.spawn(function()
-	while task.wait(0.1) do
+	while task.wait(0.5) do -- less lag
 		if AutoBuyEgg then
 			pcall(function()
 
@@ -218,49 +223,28 @@ task.spawn(function()
 					return
 				end
 
-				local oldCFrame = hrp.CFrame
+				for _, egg in ipairs(workspace:GetChildren()) do
+					if egg.Name:find("Egg")
+					and egg.Name ~= "SeperatedEgg" then
 
-				for _, obj in ipairs(workspace:GetDescendants()) do
-					if obj.Name ~= "SeperatedEgg"
-					and string.find(obj.Name, "Egg") then
+						local base = egg:FindFirstChild("Base", true)
 
-						local prompt = obj:FindFirstChildWhichIsA(
+						local prompt = egg:FindFirstChildWhichIsA(
 							"ProximityPrompt",
 							true
 						)
 
-						if prompt then
+						if base and prompt then
+							hrp.CFrame = base.CFrame + Vector3.new(0,3,0)
 
-							local targetPart
+							task.wait(0.15)
 
-							if obj:IsA("BasePart") then
-								targetPart = obj
+							fireproximityprompt(prompt)
 
-							elseif obj:IsA("Model") then
-								targetPart =
-									obj.PrimaryPart
-									or obj:FindFirstChildWhichIsA("BasePart")
-
-							else
-								targetPart =
-									obj.Parent
-									and obj.Parent:FindFirstChildWhichIsA("BasePart")
-							end
-
-							if targetPart then
-								hrp.CFrame = targetPart.CFrame
-
-								task.wait()
-
-								fireproximityprompt(prompt)
-
-								task.wait()
-							end
+							task.wait(0.15)
 						end
 					end
 				end
-
-				hrp.CFrame = oldCFrame
 
 			end)
 		end
@@ -300,23 +284,18 @@ task.spawn(function()
 							true
 						)
 
-						local targetPart
+						local target = obj:FindFirstChild("Base", true)
+							or obj.PrimaryPart
+							or obj:FindFirstChildWhichIsA("BasePart")
 
-						if obj:IsA("Model") then
-							targetPart = obj.PrimaryPart
-								or obj:FindFirstChildWhichIsA("BasePart")
-						elseif obj:IsA("BasePart") then
-							targetPart = obj
-						end
+						if prompt and target then
+							hrp.CFrame = target.CFrame + Vector3.new(0,3,0)
 
-						if prompt and targetPart then
-							hrp.CFrame = targetPart.CFrame
-
-							task.wait()
+							task.wait(0.1)
 
 							fireproximityprompt(prompt)
 
-							task.wait()
+							task.wait(0.1)
 						end
 					end
 				end
