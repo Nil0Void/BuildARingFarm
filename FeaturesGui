@@ -3,6 +3,8 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
 local LocalPlayer = Players.LocalPlayer
 
 --////////////////////////////////////////////////////
@@ -26,7 +28,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 260, 0, 470)
+Main.Size = UDim2.new(0, 260, 0, 500)
 Main.Position = UDim2.new(0.35, 0, 0.2, 0)
 Main.BackgroundColor3 = Color3.fromRGB(30,30,30)
 Main.BorderSizePixel = 0
@@ -199,18 +201,19 @@ CreateBuyToggle("TropicalSeedPack")
 CreateBuyToggle("SuperPetTreat")
 
 --////////////////////////////////////////////////////
---// AUTO BUY EGGS
+--// AUTO BUY + CLAIM EGGS
 --////////////////////////////////////////////////////
 
-local AutoBuyEgg = false
+local AutoBuyEggs = false
 
 CreateToggle("Auto Buy Eggs", function(state)
-	AutoBuyEgg = state
+	AutoBuyEggs = state
 end)
 
 task.spawn(function()
-	while task.wait(0.5) do -- less lag
-		if AutoBuyEgg then
+	while task.wait(1) do -- mobile friendly
+		if AutoBuyEggs then
+
 			pcall(function()
 
 				local character = LocalPlayer.Character
@@ -227,21 +230,44 @@ task.spawn(function()
 					if egg.Name:find("Egg")
 					and egg.Name ~= "SeperatedEgg" then
 
-						local base = egg:FindFirstChild("Base", true)
+						local base = egg:FindFirstChild("Base")
 
-						local prompt = egg:FindFirstChildWhichIsA(
-							"ProximityPrompt",
-							true
-						)
+						if base and base:IsA("MeshPart") then
 
-						if base and prompt then
+							-- tp to egg
 							hrp.CFrame = base.CFrame + Vector3.new(0,3,0)
 
 							task.wait(0.15)
 
-							fireproximityprompt(prompt)
+							-- spam interact
+							for i = 1, 10 do
 
-							task.wait(0.15)
+								-- press E
+								VirtualInputManager:SendKeyEvent(
+									true,
+									Enum.KeyCode.E,
+									false,
+									game
+								)
+
+								task.wait(0.02)
+
+								VirtualInputManager:SendKeyEvent(
+									false,
+									Enum.KeyCode.E,
+									false,
+									game
+								)
+
+								-- fire prompt
+								for _, v in ipairs(egg:GetDescendants()) do
+									if v:IsA("ProximityPrompt") then
+										fireproximityprompt(v)
+									end
+								end
+
+								task.wait(0.05)
+							end
 						end
 					end
 				end
