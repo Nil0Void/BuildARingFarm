@@ -1,0 +1,317 @@
+--// Plant Rush Mobile Hub
+--// Lightweight + Draggable + Mobile Friendly
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+--////////////////////////////////////////////////////
+--// GUI
+--////////////////////////////////////////////////////
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PlantRushGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game.CoreGui
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 260, 0, 420)
+Main.Position = UDim2.new(0.35, 0, 0.2, 0)
+Main.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+
+Instance.new("UICorner", Main)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,35)
+Title.BackgroundTransparency = 1
+Title.Text = "Plant Rush Mobile Hub"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 22
+Title.Parent = Main
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0,5)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Main
+
+Title.LayoutOrder = 0
+
+--////////////////////////////////////////////////////
+--// TOGGLE CREATOR
+--////////////////////////////////////////////////////
+
+local function CreateToggle(text, callback)
+	local Button = Instance.new("TextButton")
+
+	Button.Size = UDim2.new(0,230,0,35)
+	Button.BackgroundColor3 = Color3.fromRGB(45,45,45)
+	Button.TextColor3 = Color3.new(1,1,1)
+	Button.Font = Enum.Font.SourceSansBold
+	Button.TextSize = 18
+	Button.Text = text .. ": OFF"
+	Button.Parent = Main
+
+	Instance.new("UICorner", Button)
+
+	local Enabled = false
+
+	Button.MouseButton1Click:Connect(function()
+		Enabled = not Enabled
+		Button.Text = text .. ": " .. (Enabled and "ON" or "OFF")
+		callback(Enabled)
+	end)
+end
+
+--////////////////////////////////////////////////////
+--// INSTANT PROXIMITY PROMPTS
+--////////////////////////////////////////////////////
+
+local InstantPrompt = false
+
+CreateToggle("Instant Prompt", function(state)
+	InstantPrompt = state
+
+	if state then
+		task.spawn(function()
+			while InstantPrompt do
+				pcall(function()
+
+					for _, v in ipairs(workspace:GetDescendants()) do
+						if v:IsA("ProximityPrompt") then
+							v.HoldDuration = 0
+							v.RequiresLineOfSight = false
+							v.MaxActivationDistance = 20
+						end
+					end
+
+				end)
+
+				task.wait(1)
+			end
+		end)
+	end
+end)
+
+--////////////////////////////////////////////////////
+--// AUTO OPEN BOX
+--////////////////////////////////////////////////////
+
+local AutoOpenBox = false
+
+local OpenRemote = ReplicatedStorage
+	:WaitForChild("Remotes")
+	:WaitForChild("RequestOpenSeedPack")
+
+CreateToggle("Auto Open Box", function(state)
+	AutoOpenBox = state
+end)
+
+task.spawn(function()
+	while task.wait(0.1) do
+		if AutoOpenBox then
+			pcall(function()
+				OpenRemote:FireServer()
+			end)
+		end
+	end
+end)
+
+--////////////////////////////////////////////////////
+--// BUY SHOP ITEM TOGGLES
+--////////////////////////////////////////////////////
+
+local BuyStates = {
+	TimeSkip5m = false,
+	CosmicSpray = false,
+	RainbowSpray = false,
+	StrongFertilizer = false,
+	TropicalSeedPack = false,
+	SuperPetTreat = false
+}
+
+local BuyRemote = ReplicatedStorage
+	:WaitForChild("Remotes")
+	:WaitForChild("PlantRush")
+	:WaitForChild("BuyShopItem")
+
+local function CreateBuyToggle(itemName)
+	CreateToggle(itemName, function(state)
+		BuyStates[itemName] = state
+	end)
+
+	task.spawn(function()
+		while task.wait(0.15) do
+			if BuyStates[itemName] then
+				pcall(function()
+					BuyRemote:InvokeServer(itemName, -1000)
+				end)
+			end
+		end
+	end)
+end
+
+CreateBuyToggle("TimeSkip5m")
+CreateBuyToggle("CosmicSpray")
+CreateBuyToggle("RainbowSpray")
+CreateBuyToggle("StrongFertilizer")
+CreateBuyToggle("TropicalSeedPack")
+CreateBuyToggle("SuperPetTreat")
+
+--////////////////////////////////////////////////////
+--// BUY EGGS (IGNORES SeperatedEgg)
+--////////////////////////////////////////////////////
+
+local AutoBuyEgg = false
+
+CreateToggle("Auto Buy Eggs", function(state)
+	AutoBuyEgg = state
+end)
+
+task.spawn(function()
+	while task.wait(0.25) do
+		if AutoBuyEgg then
+			pcall(function()
+
+				local character = LocalPlayer.Character
+				if not character then
+					return
+				end
+
+				local hrp = character:FindFirstChild("HumanoidRootPart")
+				if not hrp then
+					return
+				end
+
+				local oldCFrame = hrp.CFrame
+
+				for _, obj in ipairs(workspace:GetDescendants()) do
+					if (obj:IsA("Model") or obj:IsA("Part") or obj:IsA("MeshPart"))
+					and string.find(obj.Name, "Egg")
+					and obj.Name ~= "SeperatedEgg" then
+
+						local prompt = obj:FindFirstChildWhichIsA(
+							"ProximityPrompt",
+							true
+						)
+
+						if prompt then
+
+							local targetPart
+
+							if obj:IsA("Model") then
+								targetPart = obj.PrimaryPart
+									or obj:FindFirstChildWhichIsA("BasePart")
+							else
+								targetPart = obj
+							end
+
+							if targetPart then
+								hrp.CFrame = targetPart.CFrame + Vector3.new(0,3,0)
+
+								task.wait(0.15)
+
+								fireproximityprompt(prompt)
+
+								task.wait(0.15)
+							end
+						end
+					end
+				end
+
+				hrp.CFrame = oldCFrame
+
+			end)
+		end
+	end
+end)
+
+--////////////////////////////////////////////////////
+--// AUTO USE HONEY TOKEN
+--////////////////////////////////////////////////////
+
+local AutoHoney = false
+
+CreateToggle("Auto Honey Token", function(state)
+	AutoHoney = state
+end)
+
+task.spawn(function()
+	while task.wait(1) do -- mobile friendly
+		if AutoHoney then
+			pcall(function()
+
+				local character = LocalPlayer.Character
+				if not character then
+					return
+				end
+
+				local hrp = character:FindFirstChild("HumanoidRootPart")
+				if not hrp then
+					return
+				end
+
+				-- find Honey Pot
+				for _, obj in ipairs(workspace:GetDescendants()) do
+					if obj.Name == "Honey Pot" then
+
+						local prompt = obj:FindFirstChildWhichIsA(
+							"ProximityPrompt",
+							true
+						)
+
+						local targetPart
+
+						if obj:IsA("Model") then
+							targetPart = obj.PrimaryPart
+								or obj:FindFirstChildWhichIsA("BasePart")
+						elseif obj:IsA("BasePart") then
+							targetPart = obj
+						end
+
+						if prompt and targetPart then
+							-- tp to honey pot
+							hrp.CFrame = targetPart.CFrame + Vector3.new(0,3,0)
+
+							task.wait(0.1)
+
+							-- use prompt
+							fireproximityprompt(prompt)
+
+							task.wait(0.1)
+						end
+					end
+				end
+
+			end)
+		end
+	end
+end)
+
+--////////////////////////////////////////////////////
+--// AUTO COLLECT
+--////////////////////////////////////////////////////
+
+local AutoCollect = false
+local CollectLoaded = false
+
+CreateToggle("Auto Collect", function(state)
+	AutoCollect = state
+
+	if state and not CollectLoaded then
+		CollectLoaded = true
+
+		task.spawn(function()
+			pcall(function()
+				loadstring(game:HttpGet(
+					"https://raw.githubusercontent.com/Nil0Void/BuildARingFarm/refs/heads/main/Collect"
+				))()
+			end)
+		end)
+	end
+end)
